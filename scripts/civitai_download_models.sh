@@ -47,16 +47,24 @@ download_by_number() {
 
 # Reads a list from a file (first argument) or from stdin. Format:
 #   LORAS/
-#   46546
+#   46546 #Detail tweaker
 #   16844
 #   CHECKPOINTS/
-#   4968
+#   4968 #Base realistic checkpoint
+# Anything after "#" is a comment (optional) and is shown in the progress output.
 # Paths are relative to the current directory.
 download_models() {
-  local dir="" line id ok=0 fail=0 failed=""
+  local dir="" line id comment ok=0 fail=0 failed=""
   local input=/dev/stdin
   [ -n "$1" ] && input="$1"
   while IFS= read -r line; do
+    comment=""
+    if [[ "$line" == *"#"* ]]; then
+      comment="${line#*#}"
+      comment="${comment#"${comment%%[![:space:]]*}"}"    # trim leading whitespace
+      comment="${comment%"${comment##*[![:space:]]}"}"    # trim trailing whitespace
+      line="${line%%#*}"
+    fi
     line="${line//[\"\'[:space:]]/}"          # strip quotes and whitespace
     [ -z "$line" ] && continue
     if [[ "$line" =~ ^[0-9]+$ ]]; then
@@ -64,7 +72,7 @@ download_models() {
         echo "Skipping $line: no valid LORAS/ or CHECKPOINTS/ header above it" >&2
         continue
       fi
-      echo "==> [$dir] model $line"
+      echo "==> [$dir] model $line${comment:+ ($comment)}"
       if download_by_number "$line" "$dir" < /dev/null; then
         ok=$((ok+1))
       else
