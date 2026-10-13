@@ -1,12 +1,18 @@
 #!/bin/bash
 # Vast.ai provisioning script.
-# Adds two helpers to .bashrc:
+# Adds three helpers to .bashrc:
 #   download_by_number <id> [target_dir]   - download one Civitai model by ID
 #   download_models [file]                 - download a list of IDs grouped under LORAS/ and CHECKPOINTS/
+#   download_base_models                   - download the base diffusion model, text encoder and VAE
 # Requires the CIVITAI_TOKEN environment variable (set in the Vast.ai template).
 # Safe to run more than once (it won't append the functions twice).
 
 MARKER="# >>> civitai helpers (provisioning) >>>"
+
+# Base model URLs used by download_base_models (edit before provisioning).
+BASE_DIFFUSION_MODEL_URL="https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors"
+BASE_TEXT_ENCODER_URL="https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors"
+BASE_VAE_URL="https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors"
 
 add_functions() {
     local bashrc="$1"
@@ -16,9 +22,14 @@ add_functions() {
         echo "civitai helpers already present in $bashrc"
         return 0
     fi
+    {
+        echo ""
+        echo "$MARKER"
+        printf 'BASE_DIFFUSION_MODEL_URL=%q\n' "$BASE_DIFFUSION_MODEL_URL"
+        printf 'BASE_TEXT_ENCODER_URL=%q\n' "$BASE_TEXT_ENCODER_URL"
+        printf 'BASE_VAE_URL=%q\n' "$BASE_VAE_URL"
+    } >> "$bashrc"
     cat >> "$bashrc" <<'BASHRC_EOF'
-
-# >>> civitai helpers (provisioning) >>>
 download_by_number() {
   local number="$1" dir="${2:-.}"
   if [ -z "$number" ]; then
@@ -68,6 +79,29 @@ download_models() {
     fi
   done < "$input"
   echo "Done: $ok downloaded, $fail failed${failed:+ (IDs:$failed)}"
+}
+
+# Downloads the base models from the BASE_*_URL constants.
+# Paths are relative to the current directory.
+download_base_models() {
+  local entry name url dir ok=0 fail=0 failed=""
+  for entry in \
+    "diffusion_model|$BASE_DIFFUSION_MODEL_URL|ComfyUI/models/diffusion_models" \
+    "text_encoder|$BASE_TEXT_ENCODER_URL|ComfyUI/models/text_encoder" \
+    "vae|$BASE_VAE_URL|ComfyUI/models/vae"; do
+    IFS='|' read -r name url dir <<< "$entry"
+    if [ -z "$url" ]; then
+      echo "Skipping $name: no URL set" >&2
+      continue
+    fi
+    echo "==> [$dir] $name"
+    if mkdir -p "$dir" && wget "$url" --content-disposition -P "$dir"; then
+      ok=$((ok+1))
+    else
+      fail=$((fail+1)); failed="$failed $name"
+    fi
+  done
+  echo "Done: $ok downloaded, $fail failed${failed:+ (failed:$failed)}"
 }
 # <<< civitai helpers (provisioning) <<<
 BASHRC_EOF
