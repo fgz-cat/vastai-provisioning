@@ -95,7 +95,7 @@ download_base_models() {
   local entry name url dir ok=0 fail=0 failed=""
   for entry in \
     "diffusion_model|$BASE_DIFFUSION_MODEL_URL|ComfyUI/models/diffusion_models" \
-    "text_encoder|$BASE_TEXT_ENCODER_URL|ComfyUI/models/text_encoder" \
+    "text_encoder|$BASE_TEXT_ENCODER_URL|ComfyUI/models/text_encoders" \
     "vae|$BASE_VAE_URL|ComfyUI/models/vae"; do
     IFS='|' read -r name url dir <<< "$entry"
     if [ -z "$url" ]; then
